@@ -1,4 +1,6 @@
-import { Text } from "@/components/Themed";
+import { Text, View } from "@/components/Themed";
+import { useColorScheme } from "@/components/useColorScheme";
+import Colors from "@/constants/Colors";
 import { TranscriptStorage } from "@/services/transcriptStorage";
 import {
   AudioModule,
@@ -7,14 +9,16 @@ import {
   useAudioRecorder,
   useAudioRecorderState,
 } from "expo-audio";
-import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
 import { Mic, Square } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
+  Dimensions,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -22,7 +26,12 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Shadow } from "react-native-shadow-2";
 
+const { width, height } = Dimensions.get("window");
+
 export default function TabOneScreen() {
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? "light"];
+
   const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const recorderState = useAudioRecorderState(audioRecorder);
   const [isUploading, setIsUploading] = useState(false);
@@ -33,7 +42,11 @@ export default function TabOneScreen() {
     null
   );
 
+  // Modern iOS-like Animations
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const opacityAnim = useRef(new Animated.Value(1)).current;
+  const contentAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     void (async () => {
@@ -50,26 +63,69 @@ export default function TabOneScreen() {
     })();
   }, []);
 
-  // Apple-like Animation für den Button während der Aufnahme
+  // Moderne iOS-like Animationen für UI-Übergänge
   useEffect(() => {
     if (recorderState.isRecording) {
-      // Subtile Skalierung mit spring-ähnlichem Effekt
-      Animated.spring(pulseAnim, {
-        toValue: 1.05,
-        friction: 3,
+      // Pulsierender Effekt während Aufnahme
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.08,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+
+      // Leichte Skalierung beim Start
+      Animated.spring(scaleAnim, {
+        toValue: 0.95,
+        friction: 6,
         tension: 100,
         useNativeDriver: true,
       }).start();
     } else {
-      // Sanfte Rückkehr zur Normalgröße
+      // Reset Animationen
+      pulseAnim.stopAnimation();
       Animated.spring(pulseAnim, {
         toValue: 1,
-        friction: 4,
+        friction: 8,
+        tension: 100,
+        useNativeDriver: true,
+      }).start();
+
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        friction: 8,
         tension: 100,
         useNativeDriver: true,
       }).start();
     }
-  }, [recorderState.isRecording, pulseAnim]);
+  }, [recorderState.isRecording, pulseAnim, scaleAnim]);
+
+  // Content Animation für Ergebnisse
+  useEffect(() => {
+    if (transcript || summary || error) {
+      Animated.spring(contentAnim, {
+        toValue: 1,
+        friction: 8,
+        tension: 100,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.spring(contentAnim, {
+        toValue: 0,
+        friction: 8,
+        tension: 100,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [transcript, summary, error, contentAnim]);
 
   const sendToOpenAI = useCallback(async (uri: string | null | undefined) => {
     if (!uri) {
@@ -148,7 +204,9 @@ export default function TabOneScreen() {
         setRecordingStartTime(null);
 
         // Apple-like Erfolgs-Feedback
-        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        await Haptics.notificationAsync(
+          Haptics.NotificationFeedbackType.Success
+        );
       } else {
         setTranscript(null);
         setSummary(null);
@@ -251,78 +309,235 @@ export default function TabOneScreen() {
   }, [isUploading, recorderState.isRecording, summary, transcript]);
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <Animated.View
-          style={{
-            transform: [{ scale: pulseAnim }],
-          }}
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <SafeAreaView style={styles.safeArea} edges={["top"]}>
+        {/* Header with iOS-style large title */}
+        <View style={[styles.header, { backgroundColor: colors.background }]}>
+          <Text style={[styles.largeTitle, { color: colors.text }]}>
+            Klartext
+          </Text>
+          <Text style={[styles.subtitle, { color: colors.secondaryText }]}>
+            Sprachaufzeichnung mit KI-Transkription
+          </Text>
+        </View>
+
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          bounces={true}
+          scrollIndicatorInsets={{ right: 1 }}
         >
-          <Shadow
-            distance={16}
-            startColor="#FF4D4F20"
-            endColor="#00000005"
-            offset={[0, 8]}
-            style={styles.shadowContainer}
+          {/* Main Recording Area mit iOS Card Design */}
+          <View
+            style={[
+              styles.recordingCard,
+              { backgroundColor: colors.secondaryBackground },
+            ]}
           >
-            <LinearGradient
-              colors={
-                recorderState.isRecording
-                  ? ['#E53E3E', '#C53030', '#9B2C2C'] // Dunklere Rot-Töne beim Aufnehmen
-                  : ['#FF6B6B', '#FF4D4F', '#E53E3E'] // Helle Rot-Töne im Normalzustand
-              }
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.gradientButton}
+            {/* Recording Button mit modernern iOS Design */}
+            <Animated.View
+              style={[
+                styles.recordingButtonContainer,
+                {
+                  transform: [
+                    { scale: Animated.multiply(pulseAnim, scaleAnim) },
+                  ],
+                },
+              ]}
             >
-              <BlurView
-                intensity={recorderState.isRecording ? 40 : 20}
-                tint="light"
-                style={styles.blurOverlay}
+              <Shadow
+                distance={recorderState.isRecording ? 24 : 16}
+                startColor={
+                  recorderState.isRecording
+                    ? colors.destructive + "30"
+                    : colors.tint + "20"
+                }
+                endColor="transparent"
+                offset={[0, recorderState.isRecording ? 6 : 3]}
+                style={styles.shadowContainer}
               >
-                <Pressable
-                  onPress={handleRecordPress}
-                  style={styles.pressableButton}
-                  disabled={isUploading}
-                  accessibilityRole="button"
-                  accessibilityLabel={
+                <LinearGradient
+                  colors={
                     recorderState.isRecording
-                      ? "Aufnahme stoppen"
-                      : "Audioaufnahme starten und an OpenAI senden"
+                      ? [
+                          colors.destructive,
+                          colorScheme === "dark" ? "#C53030" : "#E53E3E",
+                        ]
+                      : [
+                          colors.tint,
+                          colorScheme === "dark" ? "#0056b3" : "#005cbf",
+                        ]
                   }
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={[
+                    styles.gradientButton,
+                    recorderState.isRecording && styles.recordingButton,
+                  ]}
                 >
-                  {isUploading ? (
-                    <ActivityIndicator color="#fff" size="large" />
-                  ) : recorderState.isRecording ? (
-                    <Square size={56} color="#fff" />
-                  ) : (
-                    <Mic size={56} color="#fff" />
-                  )}
-                </Pressable>
-              </BlurView>
-            </LinearGradient>
-          </Shadow>
-        </Animated.View>
-        <Text style={styles.statusText}>{statusText}</Text>
-        {summary ? (
-          <>
-            <Text style={styles.transcriptLabel}>Zusammenfassung</Text>
-            <Text style={styles.transcriptText}>{summary}</Text>
-          </>
-        ) : null}
-        {transcript ? (
-          <>
-            <Text style={styles.transcriptLabel}>Transkription</Text>
-            <Text style={styles.transcriptText}>{transcript}</Text>
-          </>
-        ) : null}
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
-      </ScrollView>
-    </SafeAreaView>
+                  <BlurView
+                    intensity={
+                      Platform.OS === "ios"
+                        ? recorderState.isRecording
+                          ? 30
+                          : 15
+                        : 0
+                    }
+                    tint={colorScheme === "dark" ? "dark" : "light"}
+                    style={styles.blurOverlay}
+                  >
+                    <Pressable
+                      onPress={handleRecordPress}
+                      style={styles.pressableButton}
+                      disabled={isUploading}
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        recorderState.isRecording
+                          ? "Aufnahme stoppen"
+                          : "Audioaufnahme starten und an OpenAI senden"
+                      }
+                    >
+                      {isUploading ? (
+                        <ActivityIndicator color="#fff" size="large" />
+                      ) : recorderState.isRecording ? (
+                        <Square size={48} color="#fff" strokeWidth={3} />
+                      ) : (
+                        <Mic size={48} color="#fff" strokeWidth={2.5} />
+                      )}
+                    </Pressable>
+                  </BlurView>
+                </LinearGradient>
+              </Shadow>
+            </Animated.View>
+
+            {/* Status Text mit besserer Typografie */}
+            <Text style={[styles.statusText, { color: colors.text }]}>
+              {statusText}
+            </Text>
+
+            {/* Recording Indicator */}
+            {recorderState.isRecording && (
+              <Animated.View
+                style={[
+                  styles.recordingIndicator,
+                  { backgroundColor: colors.destructive + "20" },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.recordingDot,
+                    { backgroundColor: colors.destructive },
+                  ]}
+                />
+                <Text
+                  style={[styles.recordingText, { color: colors.destructive }]}
+                >
+                  REC
+                </Text>
+              </Animated.View>
+            )}
+          </View>
+
+          {/* Results Section mit iOS Card Design */}
+          <Animated.View
+            style={[
+              styles.resultsContainer,
+              {
+                opacity: contentAnim,
+                transform: [
+                  {
+                    translateY: contentAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [20, 0],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            {summary && (
+              <View
+                style={[
+                  styles.resultCard,
+                  { backgroundColor: colors.secondaryBackground },
+                ]}
+              >
+                <View style={styles.cardHeader}>
+                  <Text style={[styles.cardTitle, { color: colors.text }]}>
+                    Zusammenfassung
+                  </Text>
+                  <View
+                    style={[
+                      styles.badge,
+                      { backgroundColor: colors.success + "20" },
+                    ]}
+                  >
+                    <Text style={[styles.badgeText, { color: colors.success }]}>
+                      KI-Analyse
+                    </Text>
+                  </View>
+                </View>
+                <Text style={[styles.resultText, { color: colors.text }]}>
+                  {summary}
+                </Text>
+              </View>
+            )}
+
+            {transcript && (
+              <View
+                style={[
+                  styles.resultCard,
+                  { backgroundColor: colors.secondaryBackground },
+                ]}
+              >
+                <View style={styles.cardHeader}>
+                  <Text style={[styles.cardTitle, { color: colors.text }]}>
+                    Transkription
+                  </Text>
+                  <View
+                    style={[
+                      styles.badge,
+                      { backgroundColor: colors.tint + "20" },
+                    ]}
+                  >
+                    <Text style={[styles.badgeText, { color: colors.tint }]}>
+                      Volltext
+                    </Text>
+                  </View>
+                </View>
+                <Text style={[styles.resultText, { color: colors.text }]}>
+                  {transcript}
+                </Text>
+              </View>
+            )}
+
+            {error && (
+              <View
+                style={[
+                  styles.resultCard,
+                  styles.errorCard,
+                  { backgroundColor: colors.destructive + "10" },
+                ]}
+              >
+                <View style={styles.cardHeader}>
+                  <Text
+                    style={[styles.cardTitle, { color: colors.destructive }]}
+                  >
+                    Fehler
+                  </Text>
+                </View>
+                <Text
+                  style={[styles.resultText, { color: colors.destructive }]}
+                >
+                  {error}
+                </Text>
+              </View>
+            )}
+          </Animated.View>
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 }
 
@@ -330,32 +545,78 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  safeArea: {
+    flex: 1,
+  },
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  largeTitle: {
+    fontSize: 34,
+    fontWeight: "700",
+    lineHeight: 41,
+    letterSpacing: 0.37,
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 15,
+    fontWeight: "400",
+    lineHeight: 20,
+    letterSpacing: -0.24,
+    opacity: 0.6,
+  },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
+    paddingHorizontal: 20,
+    paddingBottom: 34,
+  },
+  recordingCard: {
+    borderRadius: 16,
+    padding: 32,
+    marginBottom: 20,
     alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 24,
-    paddingVertical: 20,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  recordingButtonContainer: {
+    marginBottom: 24,
   },
   shadowContainer: {
-    borderRadius: 90,
+    borderRadius: 75,
   },
   gradientButton: {
-    width: 180,
-    height: 180,
-    borderRadius: 90,
+    width: 150,
+    height: 150,
+    borderRadius: 75,
     alignItems: "center",
     justifyContent: "center",
+  },
+  recordingButton: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
   },
   blurOverlay: {
     width: "100%",
     height: "100%",
-    borderRadius: 90,
+    borderRadius: 75,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
   },
   pressableButton: {
     width: "100%",
@@ -364,35 +625,82 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   statusText: {
-    marginTop: 32,
     fontSize: 17,
+    fontWeight: "400",
+    lineHeight: 22,
+    letterSpacing: -0.41,
     textAlign: "center",
-    color: "#1D1D1F",
-    fontFamily: "Inter_400Regular",
-    opacity: 0.8,
+    marginBottom: 16,
   },
-  transcriptLabel: {
-    marginTop: 40,
+  recordingIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  recordingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+  recordingText: {
     fontSize: 13,
-    fontFamily: "Inter_600SemiBold",
-    textTransform: "uppercase",
-    letterSpacing: 1.2,
-    color: "#86868B",
-    textAlign: "center",
+    fontWeight: "600",
+    letterSpacing: 0.5,
   },
-  transcriptText: {
-    marginTop: 12,
+  resultsContainer: {
+    width: "100%",
+  },
+  resultCard: {
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.08,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  errorCard: {
+    borderWidth: 1,
+    borderColor: "rgba(255, 59, 48, 0.2)",
+  },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  cardTitle: {
     fontSize: 17,
-    lineHeight: 26,
-    textAlign: "center",
-    color: "#1D1D1F",
-    fontFamily: "Inter_400Regular",
+    fontWeight: "600",
+    lineHeight: 22,
+    letterSpacing: -0.41,
   },
-  errorText: {
-    marginTop: 20,
+  badge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: "600",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  resultText: {
     fontSize: 15,
-    color: "#FF3B30",
-    textAlign: "center",
-    fontFamily: "Inter_500Medium",
+    fontWeight: "400",
+    lineHeight: 20,
+    letterSpacing: -0.24,
   },
 });
