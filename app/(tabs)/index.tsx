@@ -1,4 +1,4 @@
-import { Text, View } from "@/components/Themed";
+import { Text } from "@/components/Themed";
 import { TranscriptStorage } from "@/services/transcriptStorage";
 import {
   AudioModule,
@@ -13,8 +13,10 @@ import {
   ActivityIndicator,
   Animated,
   Pressable,
+  ScrollView,
   StyleSheet,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function TabOneScreen() {
   const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
@@ -244,59 +246,72 @@ export default function TabOneScreen() {
   }, [isUploading, recorderState.isRecording, summary, transcript]);
 
   return (
-    <View style={styles.container}>
-      <Animated.View
-        style={{
-          transform: [{ scale: pulseAnim }],
-        }}
+    <SafeAreaView style={styles.container}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
       >
-        <Pressable
-          onPress={handleRecordPress}
-          style={[
-            styles.recordButton,
-            recorderState.isRecording && styles.recordButtonActive,
-          ]}
-          disabled={isUploading}
-          accessibilityRole="button"
-          accessibilityLabel={
-            recorderState.isRecording
-              ? "Aufnahme stoppen"
-              : "Audioaufnahme starten und an OpenAI senden"
-          }
+        <Animated.View
+          style={{
+            transform: [{ scale: pulseAnim }],
+          }}
         >
-          {isUploading ? (
-            <ActivityIndicator color="#fff" size="large" />
-          ) : recorderState.isRecording ? (
-            <Square size={56} color="#fff" />
-          ) : (
-            <Mic size={56} color="#fff" />
-          )}
-        </Pressable>
-      </Animated.View>
-      <Text style={styles.statusText}>{statusText}</Text>
-      {summary ? (
-        <>
-          <Text style={styles.transcriptLabel}>Zusammenfassung</Text>
-          <Text style={styles.transcriptText}>{summary}</Text>
-        </>
-      ) : null}
-      {transcript ? (
-        <>
-          <Text style={styles.transcriptLabel}>Transkription</Text>
-          <Text style={styles.transcriptText}>{transcript}</Text>
-        </>
-      ) : null}
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
-    </View>
+          <Pressable
+            onPress={handleRecordPress}
+            style={[
+              styles.recordButton,
+              recorderState.isRecording && styles.recordButtonActive,
+            ]}
+            disabled={isUploading}
+            accessibilityRole="button"
+            accessibilityLabel={
+              recorderState.isRecording
+                ? "Aufnahme stoppen"
+                : "Audioaufnahme starten und an OpenAI senden"
+            }
+          >
+            {isUploading ? (
+              <ActivityIndicator color="#fff" size="large" />
+            ) : recorderState.isRecording ? (
+              <Square size={56} color="#fff" />
+            ) : (
+              <Mic size={56} color="#fff" />
+            )}
+          </Pressable>
+        </Animated.View>
+        <Text style={styles.statusText}>{statusText}</Text>
+        {summary ? (
+          <>
+            <Text style={styles.transcriptLabel}>Zusammenfassung</Text>
+            <Text style={styles.transcriptText}>{summary}</Text>
+          </>
+        ) : null}
+        {transcript ? (
+          <>
+            <Text style={styles.transcriptLabel}>Transkription</Text>
+            <Text style={styles.transcriptText}>{transcript}</Text>
+          </>
+        ) : null}
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 24,
+    paddingVertical: 20,
   },
   recordButton: {
     width: 180,

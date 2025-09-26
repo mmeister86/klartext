@@ -1,6 +1,8 @@
+import { useFocusEffect } from "@react-navigation/native";
 import { Clock, FileText, Trash2 } from "lucide-react-native";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { Alert, FlatList, Pressable, StyleSheet } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Text, View } from "@/components/Themed";
 import { Transcript, TranscriptStorage } from "@/services/transcriptStorage";
@@ -24,9 +26,11 @@ export default function TabTwoScreen() {
     }
   }, []);
 
-  useEffect(() => {
-    void loadTranscripts();
-  }, [loadTranscripts]);
+  useFocusEffect(
+    useCallback(() => {
+      void loadTranscripts();
+    }, [loadTranscripts])
+  );
 
   const handleDeleteTranscript = useCallback(
     async (id: string) => {
@@ -122,15 +126,15 @@ export default function TabTwoScreen() {
 
   if (loading) {
     return (
-      <View style={styles.container}>
+      <SafeAreaView style={styles.container}>
         <Text style={styles.title}>Transkript-Archiv</Text>
         <Text style={styles.loadingText}>Lade Transkriptionen...</Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <Text style={styles.title}>Transkript-Archiv</Text>
       {transcripts.length === 0 ? (
         <View style={styles.emptyContainer}>
@@ -149,7 +153,7 @@ export default function TabTwoScreen() {
           showsVerticalScrollIndicator={false}
         />
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
