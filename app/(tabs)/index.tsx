@@ -7,6 +7,9 @@ import {
   useAudioRecorder,
   useAudioRecorderState,
 } from "expo-audio";
+import { LinearGradient } from "expo-linear-gradient";
+import { BlurView } from "expo-blur";
+import * as Haptics from "expo-haptics";
 import { Mic, Square } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -17,6 +20,7 @@ import {
   StyleSheet,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Shadow } from "react-native-shadow-2";
 
 export default function TabOneScreen() {
   const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
@@ -46,30 +50,22 @@ export default function TabOneScreen() {
     })();
   }, []);
 
-  // Pulsier-Animation für den Button während der Aufnahme
+  // Apple-like Animation für den Button während der Aufnahme
   useEffect(() => {
     if (recorderState.isRecording) {
-      const pulseAnimation = Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 1.2,
-            duration: 600,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseAnim, {
-            toValue: 1,
-            duration: 600,
-            useNativeDriver: true,
-          }),
-        ])
-      );
-      pulseAnimation.start();
-      return () => pulseAnimation.stop();
+      // Subtile Skalierung mit spring-ähnlichem Effekt
+      Animated.spring(pulseAnim, {
+        toValue: 1.05,
+        friction: 3,
+        tension: 100,
+        useNativeDriver: true,
+      }).start();
     } else {
-      // Animation stoppen und auf Ursprungswert zurücksetzen
-      Animated.timing(pulseAnim, {
+      // Sanfte Rückkehr zur Normalgröße
+      Animated.spring(pulseAnim, {
         toValue: 1,
-        duration: 200,
+        friction: 4,
+        tension: 100,
         useNativeDriver: true,
       }).start();
     }
@@ -150,6 +146,9 @@ export default function TabOneScreen() {
         setSummary(summaryText && summaryText.length > 0 ? summaryText : null);
         setError(null);
         setRecordingStartTime(null);
+
+        // Apple-like Erfolgs-Feedback
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } else {
         setTranscript(null);
         setSummary(null);
@@ -173,6 +172,8 @@ export default function TabOneScreen() {
 
   const handleStartRecording = useCallback(async () => {
     try {
+      // Apple-like haptisches Feedback beim Starten der Aufnahme
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       setError(null);
       setTranscript(null);
       setSummary(null);
@@ -180,6 +181,7 @@ export default function TabOneScreen() {
       await audioRecorder.prepareToRecordAsync();
       audioRecorder.record();
     } catch (err) {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setError(
         err instanceof Error
           ? err.message
@@ -195,6 +197,8 @@ export default function TabOneScreen() {
     }
 
     try {
+      // Apple-like haptisches Feedback beim Stoppen der Aufnahme
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       setIsUploading(true);
       await audioRecorder.stop();
       await setAudioModeAsync({
@@ -203,6 +207,7 @@ export default function TabOneScreen() {
       });
       await sendToOpenAI(audioRecorder.uri);
     } catch (err) {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setIsUploading(false);
       setError(
         err instanceof Error
@@ -257,28 +262,50 @@ export default function TabOneScreen() {
             transform: [{ scale: pulseAnim }],
           }}
         >
-          <Pressable
-            onPress={handleRecordPress}
-            style={[
-              styles.recordButton,
-              recorderState.isRecording && styles.recordButtonActive,
-            ]}
-            disabled={isUploading}
-            accessibilityRole="button"
-            accessibilityLabel={
-              recorderState.isRecording
-                ? "Aufnahme stoppen"
-                : "Audioaufnahme starten und an OpenAI senden"
-            }
+          <Shadow
+            distance={16}
+            startColor="#FF4D4F20"
+            endColor="#00000005"
+            offset={[0, 8]}
+            style={styles.shadowContainer}
           >
-            {isUploading ? (
-              <ActivityIndicator color="#fff" size="large" />
-            ) : recorderState.isRecording ? (
-              <Square size={56} color="#fff" />
-            ) : (
-              <Mic size={56} color="#fff" />
-            )}
-          </Pressable>
+            <LinearGradient
+              colors={
+                recorderState.isRecording
+                  ? ['#E53E3E', '#C53030', '#9B2C2C'] // Dunklere Rot-Töne beim Aufnehmen
+                  : ['#FF6B6B', '#FF4D4F', '#E53E3E'] // Helle Rot-Töne im Normalzustand
+              }
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.gradientButton}
+            >
+              <BlurView
+                intensity={recorderState.isRecording ? 40 : 20}
+                tint="light"
+                style={styles.blurOverlay}
+              >
+                <Pressable
+                  onPress={handleRecordPress}
+                  style={styles.pressableButton}
+                  disabled={isUploading}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    recorderState.isRecording
+                      ? "Aufnahme stoppen"
+                      : "Audioaufnahme starten und an OpenAI senden"
+                  }
+                >
+                  {isUploading ? (
+                    <ActivityIndicator color="#fff" size="large" />
+                  ) : recorderState.isRecording ? (
+                    <Square size={56} color="#fff" />
+                  ) : (
+                    <Mic size={56} color="#fff" />
+                  )}
+                </Pressable>
+              </BlurView>
+            </LinearGradient>
+          </Shadow>
         </Animated.View>
         <Text style={styles.statusText}>{statusText}</Text>
         {summary ? (
@@ -313,44 +340,59 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 20,
   },
-  recordButton: {
+  shadowContainer: {
+    borderRadius: 90,
+  },
+  gradientButton: {
     width: 180,
     height: 180,
     borderRadius: 90,
-    backgroundColor: "#FF4D4F",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.25,
-    shadowOffset: { width: 0, height: 8 },
-    shadowRadius: 16,
-    elevation: 6,
   },
-  recordButtonActive: {
-    backgroundColor: "#D9363E",
+  blurOverlay: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 90,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pressableButton: {
+    width: "100%",
+    height: "100%",
+    alignItems: "center",
+    justifyContent: "center",
   },
   statusText: {
-    marginTop: 24,
-    fontSize: 16,
+    marginTop: 32,
+    fontSize: 17,
     textAlign: "center",
+    color: "#1D1D1F",
+    fontFamily: "Inter_400Regular",
+    opacity: 0.8,
   },
   transcriptLabel: {
-    marginTop: 32,
-    fontSize: 14,
+    marginTop: 40,
+    fontSize: 13,
     fontFamily: "Inter_600SemiBold",
     textTransform: "uppercase",
-    letterSpacing: 0.8,
+    letterSpacing: 1.2,
+    color: "#86868B",
+    textAlign: "center",
   },
   transcriptText: {
-    marginTop: 8,
-    fontSize: 16,
-    lineHeight: 24,
+    marginTop: 12,
+    fontSize: 17,
+    lineHeight: 26,
     textAlign: "center",
+    color: "#1D1D1F",
+    fontFamily: "Inter_400Regular",
   },
   errorText: {
-    marginTop: 16,
-    fontSize: 14,
-    color: "#FF6B6B",
+    marginTop: 20,
+    fontSize: 15,
+    color: "#FF3B30",
     textAlign: "center",
+    fontFamily: "Inter_500Medium",
   },
 });
