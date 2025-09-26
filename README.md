@@ -1,50 +1,50 @@
-# Welcome to your Expo app 👋
+# Klartext
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+## Übersicht
 
-## Get started
+Dieses Projekt besteht aus der Expo-App und einem kleinen Node-Backend, das Audioaufnahmen serverseitig transkribiert und zusammenfasst.
 
-1. Install dependencies
+## Voraussetzungen
 
-   ```bash
-   npm install
-   ```
+- Node.js 20+
+- npm 10+
+- Ein gültiger `OPENAI_API_KEY`
 
-2. Start the app
+## Umgebungsvariablen
 
-   ```bash
-   npx expo start
-   ```
+Lege eine `.env` im Projektroot an (wird bereits ignoriert) und ergänze mindestens:
 
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```
+OPENAI_API_KEY=dein-openai-schluessel
+PORT=4000
+CORS_ALLOW_ORIGIN=http://localhost:8081
+EXPO_PUBLIC_API_BASE_URL=http://localhost:4000
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Hinweise:
 
-## Learn more
+- `OPENAI_API_KEY` darf **nicht** ins Frontend oder als `EXPO_PUBLIC_*` gelangen.
+- `EXPO_PUBLIC_API_BASE_URL` zeigt auf das Backend und ist die einzige notwendige Public-Variable.
+- Passe `CORS_ALLOW_ORIGIN` an die URL des Expo-Dev-Servers an.
 
-To learn more about developing your project with Expo, look at the following resources:
+## Entwicklung starten
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+Backend in einem Terminal starten:
 
-## Join the community
+```
+npm run dev:backend
+```
 
-Join our community of developers creating universal apps.
+Expo-App in einem zweiten Terminal starten:
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+```
+npm start
+```
+
+Die App lädt Audio-Dateien hoch und erhält Transkript + Zusammenfassung vom Backend (`/api/transcribe`).
+
+## Produktion
+
+- Hinterlege `OPENAI_API_KEY` nur in sicheren Server- oder Edge-Umgebungen (z. B. Vercel Function, Cloud Run, Fly.io).
+- Setze `EXPO_PUBLIC_API_BASE_URL` auf die öffentlich erreichbare Backend-URL.
+- Aktiviere Authentifizierung/Rate-Limiting nach Bedarf und logge keine sensiblen Inhalte.
